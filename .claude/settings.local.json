@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node scraper.js:*)",
+      "Bash(npm install:*)",
+      "Bash(timeout 60 node:*)",
+      "Bash(cat:*)",
+      "Bash(ls:*)",
+      "Bash(timeout 120 node:*)",
+      "Bash(taskkill:*)",
+      "Bash(pkill:*)"
+    ]
+  }
+}

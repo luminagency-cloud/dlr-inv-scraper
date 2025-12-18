@@ -1,0 +1,25 @@
+{
+  "name": "dealer-inventory-scraper",
+  "version": "1.0.0",
+  "description": "Automated dealership inventory comparison tool",
+  "main": "scraper.js",
+  "scripts": {
+    "start": "node scraper.js",
+    "test": "node scraper.js dealers_cdjr.csv"
+  },
+  "keywords": [
+    "scraper",
+    "inventory",
+    "dealership",
+    "automotive"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "csv-parse": "^5.5.3",
+    "csv-stringify": "^6.4.5",
+    "puppeteer": "^24.3.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2"
+  }
+}
