@@ -4,6 +4,7 @@ const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 puppeteer.use(StealthPlugin());
 
 const fs = require('fs');
+const path = require('path');
 const { parse } = require('csv-parse/sync');
 const { stringify } = require('csv-stringify/sync');
 
@@ -73,7 +74,14 @@ async function main() {
 
   // Generate output filename with timestamp (local time)
   const timestamp = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD format
-  const outputFile = csvFile.replace('.csv', `_inventory_${timestamp}.csv`);
+  const outputDir = path.join(__dirname, 'output');
+  const inputFileName = path.basename(csvFile, '.csv');
+  const outputFile = path.join(outputDir, `${inputFileName}_inventory_${timestamp}.csv`);
+
+  // Create output directory if it doesn't exist
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true });
+  }
 
   // Write CSV
   fs.writeFileSync(outputFile, masterTable);

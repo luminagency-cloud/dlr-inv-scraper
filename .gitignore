@@ -4,6 +4,7 @@ package-lock.json
 
 # Output files
 *_inventory_*.csv
+output/
 
 # Logs
 *.log
