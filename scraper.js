@@ -42,8 +42,10 @@ async function main() {
       '--disable-dev-shm-usage',
       '--disable-accelerated-2d-canvas',
       '--disable-gpu',
-      '--disable-blink-features=AutomationControlled'  // Hide automation
-    ]
+      '--disable-blink-features=AutomationControlled',  // Hide automation
+      '--start-maximized'  // Maximize browser window
+    ],
+    defaultViewport: null  // Use full window size as viewport
   });
 
   const results = [];
@@ -52,11 +54,25 @@ async function main() {
   // Process each dealer
   for (const dealer of dealers) {
     console.log(`\n━━━ Processing: ${dealer.name} ━━━`);
-    
+
     try {
       const dealerData = await processDealerWithRetry(browser, dealer);
-      results.push(dealerData);
-      console.log(`✅ ${dealer.name} complete`);
+
+      // Check if dealer has any vehicles (0 vehicles = failure)
+      const totalVehicles = dealerData.makes.reduce((sum, makeData) => {
+        return sum + Object.values(makeData.models).reduce((a, b) => a + b, 0);
+      }, 0);
+
+      if (totalVehicles === 0) {
+        console.error(`❌ ${dealer.name} failed: Found 0 vehicles`);
+        errors.push({
+          dealer: dealer.name,
+          error: 'Found 0 vehicles (likely scraping issue)'
+        });
+      } else {
+        results.push(dealerData);
+        console.log(`✅ ${dealer.name} complete (${totalVehicles} vehicles)`);
+      }
     } catch (error) {
       console.error(`❌ ${dealer.name} failed: ${error.message}`);
       errors.push({
@@ -87,13 +103,19 @@ async function main() {
   fs.writeFileSync(outputFile, masterTable);
   console.log(`\n✅ Output written to: ${outputFile}`);
 
-  // Report errors
-  if (errors.length > 0) {
-    console.log(`\n⚠️  Failed Dealers (${errors.length}):`);
-    errors.forEach(e => console.log(`   - ${e.dealer}: ${e.error}`));
-  }
+  // Final summary with clear success/failure indication
+  const successCount = dealers.length - errors.length;
+  const totalCount = dealers.length;
 
-  console.log(`\n✨ Scraping complete!\n`);
+  console.log(`\n${'='.repeat(50)}`);
+  if (errors.length === 0) {
+    console.log(`✅ SUCCESS: ${successCount} of ${totalCount} dealers scanned successfully`);
+  } else {
+    console.log(`⚠️  PARTIAL FAILURE: ${successCount} of ${totalCount} dealers scanned`);
+    console.log(`\nFailed Dealers (${errors.length}):`);
+    errors.forEach(e => console.log(`   ❌ ${e.dealer}: ${e.error}`));
+  }
+  console.log(`${'='.repeat(50)}\n`);
 }
 
 /**
@@ -142,14 +164,7 @@ async function processDealerWithRetry(browser, dealer, retries = 2) {
 async function scrapeDDCInventory(browser, dealer) {
   const page = await browser.newPage();
 
-  // Set LARGE desktop viewport to ensure desktop mode (DDC sites are responsive)
-  await page.setViewport({
-    width: 2560,  // Extra wide to force desktop layout
-    height: 1440,
-    deviceScaleFactor: 1,
-    isMobile: false,
-    hasTouch: false
-  });
+  // Set user agent for desktop mode (viewport inherited from maximized window)
   await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
 
   // DEBUG: Log network errors (commented out to reduce noise)
@@ -179,15 +194,9 @@ async function scrapeDDCInventory(browser, dealer) {
   };
 
   try {
-    // STEP 0: Navigate directly to inventory page with on-lot filter
+    // STEP 0: Navigate to inventory page through menu system
     console.log(`   Step 0: Navigating to inventory page...`);
-    const inventoryUrl = `${dealer.baseUrl}?status=1-1`;
-    console.log(`      URL: ${inventoryUrl}`);
-    await page.goto(inventoryUrl, {
-      waitUntil: 'domcontentloaded',
-      timeout: 30000
-    });
-    await sleep(3000); // Wait for JavaScript to render filters
+    await navigateToInventoryPage(page, dealer.baseUrl);
     console.log(`      ✓ Loaded: ${page.url()}\n`);
 
     // STEP 1: Detect available makes from the dealer's site
@@ -466,13 +475,14 @@ async function detectMakes(page, baseUrl) {
 async function scrapeMakeModels(page, baseUrl, make) {
   console.log(`      Navigating to ${make} inventory page...`);
 
-  // STEP 1: Navigate directly to the make-filtered URL
-  const makeUrl = `${baseUrl}?status=1-1&make=${encodeURIComponent(make)}`;
+  // STEP 1: Build make-filtered URL using current page path (e.g., /new-inventory/)
+  const currentUrl = new URL(page.url());
+  const makeUrl = `${currentUrl.origin}${currentUrl.pathname}?status=1-1&make=${encodeURIComponent(make)}`;
   console.log(`      URL: ${makeUrl}`);
 
   await page.goto(makeUrl, {
     waitUntil: 'domcontentloaded',
-    timeout: 30000
+    timeout: 20000
   });
 
   // Wait for page to fully load and render filters
@@ -961,35 +971,14 @@ async function extractModelCounts(page) {
     return { models: modelCounts, debugInfo: debug };
   });
 
-  // Debug output
-  console.log(`\n      ==== ALL PANELS ON PAGE ====`);
-  if (debugInfo.allPanels && debugInfo.allPanels.length > 0) {
-    for (let i = 0; i < Math.min(10, debugInfo.allPanels.length); i++) {
-      const panel = debugInfo.allPanels[i];
-      console.log(`      Panel ${i+1}: ${panel.tagName} id="${panel.id}"`);
-      console.log(`        spans: ${panel.spanCount}, li: ${panel.liCount}, labels: ${panel.labelCount}`);
-      console.log(`        HTML preview: ${panel.innerHTML.substring(0, 200)}...`);
-    }
-  } else {
-    console.log(`      No panels found with content!`);
-  }
-  console.log(`      ============================\n`);
-
-  console.log(`      DEBUG: Found ${debugInfo.foundSections.length} filter sections: ${debugInfo.foundSections.slice(0, 5).join(', ')}`);
+  // Debug output (HTML previews removed for cleaner console)
   if (debugInfo.modelSection) {
-    console.log(`      DEBUG: Model section heading: "${debugInfo.modelSection}"`);
+    console.log(`      DEBUG: Model section found: "${debugInfo.modelSection}"`);
     if (debugInfo.panelId) {
       console.log(`      DEBUG: Panel ID: ${debugInfo.panelId}, Found: ${debugInfo.panelFound}`);
     }
-    if (debugInfo.searchScopeTag) {
-      console.log(`      DEBUG: SearchScope: ${debugInfo.searchScopeTag}, hasUL: ${debugInfo.hasUL}, li: ${debugInfo.liCount}, labels: ${debugInfo.labelCount}`);
-    }
-    console.log(`      DEBUG: First few options: ${debugInfo.options.slice(0, 3).join(' | ')}`);
-    if (debugInfo.searchScopeHTML) {
-      console.log(`      DEBUG: SearchScope HTML: ${debugInfo.searchScopeHTML.substring(0, 500)}...`);
-    }
   } else {
-    console.log(`      DEBUG: No Model section found`);
+    console.log(`      DEBUG: No Model section found (searched ${debugInfo.foundSections.length} sections)`);
   }
   
   const modelCount = Object.keys(models).length;
