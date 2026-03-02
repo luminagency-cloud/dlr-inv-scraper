@@ -907,6 +907,86 @@ node scraper.js dealers_cdjr.csv
 
 ---
 
+## CODE ORGANIZATION
+
+```
+dealer-inventory-scraper/
+├── package.json           # Dependencies
+├── scraper.js             # Main script
+├── PROJECT.md             # This file (architecture, spec, reference)
+├── README.md              # User documentation
+├── dealers_cdjr.csv       # Example input (CDJR group)
+├── .gitignore             # Ignore node_modules, output files
+└── output/                # Generated CSV files (gitignored)
+    └── dealers_cdjr_inventory_2024-12-17.csv
+```
+
+---
+
+## TECHNICAL DECISIONS
+
+### Why Puppeteer over Playwright?
+- Simpler installation (batteries included)
+- Smaller API surface for maintenance
+- Good enough for current needs
+
+### Why Not Comet/Browser Agent?
+- Need repeatable, transferable process
+- Client needs to run independently
+- Want codebase control for debugging/customization
+
+### Why Sequential over Parallel?
+- Simpler code
+- Avoids overwhelming dealer sites
+- Easier to debug
+- Fast enough for current scale (3-10 dealers)
+
+### Why CSV over JSON?
+- Easy to import to Excel/Google Sheets
+- Client familiar with format
+- Simple to manipulate/sort after generation
+
+---
+
+## FUTURE ENHANCEMENTS
+
+### Short-term
+- [ ] Better error messages (which selector failed?)
+- [ ] Progress indicators (X of Y dealers complete)
+- [ ] Validate CSV format before processing
+
+### Medium-term
+- [ ] Web UI for non-technical users
+- [ ] Historical data storage (append to database/CSV archive)
+- [ ] Delta reports (changes since last run)
+
+### Long-term
+- [ ] Scheduled execution (if needed)
+- [ ] Email reports
+- [ ] Dashboard visualization
+- [ ] Multiple market support (different regions)
+
+---
+
+## SECURITY CONSIDERATIONS
+
+- No credentials stored (public dealer sites)
+- No PII collected (only public inventory data)
+- User agent set to identify as legitimate browser
+- Respectful scraping (sequential, realistic delays)
+- Sites can block via robots.txt (respect if detected)
+
+---
+
+## LICENSE & USAGE
+
+- For internal business use
+- Not for resale or redistribution
+- Respect dealer site terms of service
+- Use reasonable rate limits
+
+---
+
 ## APPENDIX A: Complete Selector Reference
 
 ### DDC Platform Selectors
@@ -1005,6 +1085,12 @@ Chrysler,Pacifica,3,1,4
 ---
 
 ## REVISION HISTORY
+
+- **v1.1** - Robustness update + consolidated documentation (Mar 2026)
+  - 10 selector strategies for Model expansion
+  - "View More" button handling
+  - Puppeteer 24.3 upgrade
+  - Merged design.md into this file (single source of truth)
 
 - **v1.0** - Initial specification (Dec 2024)
   - DDC platform support
