@@ -16,8 +16,10 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "basic-ftp": "^5.0.5",
     "csv-parse": "^5.5.3",
     "csv-stringify": "^6.4.5",
+    "nodemailer": "^6.9.0",
     "puppeteer": "^24.3.0",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2"

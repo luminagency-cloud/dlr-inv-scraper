@@ -1,0 +1,55 @@
+name: Daily Dealer Inventory Scrape
+
+on:
+  schedule:
+    - cron: '0 12 * * *'   # 8 AM EST (UTC-4 summer) — adjust as needed
+  workflow_dispatch:         # Adds a "Run workflow" button on GitHub Actions tab
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Cache Puppeteer Chromium
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/puppeteer
+          key: puppeteer-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - run: npm ci
+
+      - name: Run scraper
+        id: scrape
+        run: |
+          mkdir -p output
+          node scraper.js dealers_cdjr.csv 2>&1 | tee output/run.log
+          echo "exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
+        env:
+          CI: 'true'
+        continue-on-error: true
+
+      - name: Upload to website via FTP
+        if: always()
+        run: node upload-site.js
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USER: ${{ secrets.FTP_USER }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          FTP_REMOTE_DIR: ${{ secrets.FTP_REMOTE_DIR }}
+
+      - name: Send email notification
+        if: always()
+        run: node notify-email.js
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          NOTIFY_TO: ${{ secrets.NOTIFY_TO }}
+          SCRAPE_EXIT_CODE: ${{ steps.scrape.outputs.exit_code }}

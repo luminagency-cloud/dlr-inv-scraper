@@ -46,9 +46,10 @@ async function main() {
   const dealers = readDealerCSV(csvFile);
   console.log(`  ${dealers.length} dealers to process\n`);
 
+  const isCI = process.env.CI === 'true';
   const browser = await puppeteer.launch({
-    headless: false,
-    slowMo: 50,
+    headless: isCI ? true : false,
+    slowMo: isCI ? 0 : 50,
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',

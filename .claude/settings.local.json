@@ -8,7 +8,8 @@
       "Bash(ls:*)",
       "Bash(timeout 120 node:*)",
       "Bash(taskkill:*)",
-      "Bash(pkill:*)"
+      "Bash(pkill:*)",
+      "Bash(node:*)"
     ]
   }
 }
