@@ -36,15 +36,15 @@ async function notify() {
     }
   }
 
-  const remoteDir = process.env.FTP_REMOTE_DIR || '/public_html/reports';
-  const ftpHost = process.env.FTP_HOST || '';
+  const folderId = process.env.GDRIVE_FOLDER_ID || '';
+  const folderUrl = folderId ? `https://drive.google.com/drive/folders/${folderId}` : '';
 
   const bodyText = [
     `Status:  ${status}`,
     `Date:    ${today}`,
     `File:    ${csvFile || '(none generated)'}`,
     '',
-    csvFile ? `Download: https://${ftpHost}${remoteDir}/${csvFile}` : '',
+    folderUrl ? `Folder:  ${folderUrl}` : '',
     '',
     '--- Dealer Results ---',
     dealerLines.length > 0 ? dealerLines.join('\n') : '(no dealer lines found)',

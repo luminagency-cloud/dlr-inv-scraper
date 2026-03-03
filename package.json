@@ -16,7 +16,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "basic-ftp": "^5.0.5",
+    "googleapis": "^144.0.0",
     "csv-parse": "^5.5.3",
     "csv-stringify": "^6.4.5",
     "nodemailer": "^6.9.0",
