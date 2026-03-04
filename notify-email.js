@@ -3,9 +3,26 @@ const fs = require('fs');
 const path = require('path');
 
 async function notify() {
+  const mode = process.env.NOTIFY_MODE || 'end';
+  const today = new Date().toISOString().slice(0, 10);
+
+  if (mode === 'start') {
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD },
+    });
+    await transporter.sendMail({
+      from: process.env.GMAIL_USER,
+      to: process.env.NOTIFY_TO,
+      subject: `[Dealer Scraper] Starting run - ${today}`,
+      text: `The CDJR dealer inventory scrape has started.\n\nYou'll receive another email when it completes.`,
+    });
+    console.log(`Start email sent to ${process.env.NOTIFY_TO}`);
+    return;
+  }
+
   const exitCode = parseInt(process.env.SCRAPE_EXIT_CODE || '1', 10);
   const status = exitCode === 0 ? 'SUCCESS' : 'FAILED';
-  const today = new Date().toISOString().slice(0, 10);
 
   // Read the run log
   const logFile = path.join(process.cwd(), 'output', 'run.log');
