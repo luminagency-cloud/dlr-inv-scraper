@@ -18,11 +18,14 @@ async function checkDrive() {
     });
     const drive = google.drive({ version: 'v3', auth });
 
-    await drive.files.list({
-      q: `'${folderId}' in parents and trashed=false`,
-      pageSize: 1,
-      fields: 'files(id)',
+    // Test write access: create a tiny file then immediately delete it
+    const { Readable } = require('stream');
+    const res = await drive.files.create({
+      requestBody: { name: '_preflight_test.txt', parents: [folderId] },
+      media: { mimeType: 'text/plain', body: Readable.from(['preflight']) },
+      fields: 'id',
     });
+    await drive.files.delete({ fileId: res.data.id });
 
     console.log('OK');
   } catch (err) {
