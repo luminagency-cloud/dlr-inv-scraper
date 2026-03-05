@@ -4,6 +4,11 @@ const fs = require('fs');
 const path = require('path');
 
 async function upload() {
+  if (!process.env.GDRIVE_CLIENT_ID || !process.env.GDRIVE_REFRESH_TOKEN) {
+    console.log('Skipping Google Drive upload (no credentials configured — local run)');
+    return;
+  }
+
   const folderId = process.env.GDRIVE_FOLDER_ID;
 
   const auth = new OAuth2Client(process.env.GDRIVE_CLIENT_ID, process.env.GDRIVE_CLIENT_SECRET);

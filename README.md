@@ -1,60 +1,102 @@
 # Dealer Inventory Scraper
 
-Automated tool to compare vehicle inventory across multiple dealerships. Scrapes current on-lot inventory by Make and Model from dealer websites and generates comparison CSV reports.
+Automated tool that scrapes current on-lot vehicle inventory from dealer websites, generates comparison CSV reports by Make/Model, uploads results to Google Drive, and sends email notifications. Runs daily via GitHub Actions.
 
-## Quick Start
+## Overview
+
+Two dealer groups are configured, each running on its own schedule:
+
+| Group | Input File | Workflow | Schedule |
+|-------|-----------|----------|----------|
+| CDJR  | `input/dealers_cdjr.csv` | `daily-cdjr.yml` | 8 AM EST |
+| Buick | `input/dealers_buick.csv` | `daily-buick.yml` | 10 AM EST |
+
+Each automated run:
+1. Runs preflight checks (Drive + Gmail credentials)
+2. Sends a "starting" email notification
+3. Scrapes all dealers in the group's CSV
+4. Writes the output CSV to `output/`
+5. Uploads the CSV to Google Drive
+6. Sends a completion email with results summary
+
+---
+
+## Local Development
+
+No credentials are needed to run the scraper locally. The support scripts (`preflight.js`, `upload-site.js`, `notify-email.js`) skip gracefully when credentials are absent.
 
 ### Prerequisites
-- Node.js 16+ installed ([Download](https://nodejs.org/))
+- Node.js 16+ ([Download](https://nodejs.org/))
 - Internet connection
-- CSV file with dealer information
 
 ### Installation
 
 ```bash
-# 1. Extract the zip file
-unzip dealer-inventory-scraper.zip
-cd dealer-inventory-scraper
-
-# 2. Install dependencies
 npm install
-
-# 3. Run the scraper
-node scraper.js dealers_cdjr.csv
 ```
 
-## Usage
+### Running Locally
 
-### Basic Command
-```bash
-node scraper.js <dealer_csv_file>
-```
-
-### Example
 ```bash
 # Scrape CDJR dealers
-node scraper.js dealers_cdjr.csv
+node scraper.js input/dealers_cdjr.csv
 
-# Scrape GMC dealers
-node scraper.js dealers_gmc.csv
+# Scrape Buick dealers
+node scraper.js input/dealers_buick.csv
+
+# Verbose output (shows selector attempts, page steps)
+node scraper.js input/dealers_cdjr.csv -v
 ```
 
-### Output
-Creates timestamped CSV file:
+Output CSV is written to `output/` (created automatically):
 ```
-dealers_cdjr_inventory_2024-12-17.csv
+output/dealers_cdjr_inventory_2025-03-05.csv
 ```
+
+**Note:** Without `CI=true`, the browser runs in headed (visible) mode so you can watch it work. The CI workflows set `CI=true` to run headless.
+
+---
+
+## GitHub Actions (Automated Runs)
+
+### Required GitHub Secrets
+
+Go to **Settings → Secrets → Actions** in the repository and add:
+
+| Secret | Description |
+|--------|-------------|
+| `GDRIVE_CLIENT_ID` | Google OAuth2 client ID |
+| `GDRIVE_CLIENT_SECRET` | Google OAuth2 client secret |
+| `GDRIVE_REFRESH_TOKEN` | OAuth2 refresh token (see `get-gdrive-token.js`) |
+| `GDRIVE_FOLDER_ID` | Google Drive folder ID for output uploads |
+| `GMAIL_USER` | Gmail address for sending notifications |
+| `GMAIL_APP_PASSWORD` | Gmail App Password (not account password) |
+| `NOTIFY_TO` | Email address to receive run notifications |
+
+### Manual Trigger
+
+On the **Actions** tab in GitHub, select a workflow and click **Run workflow**.
+
+### Workflow Files
+
+- `.github/workflows/daily-cdjr.yml` — CDJR group, runs at 8 AM EST
+- `.github/workflows/daily-buick.yml` — Buick group, runs at 10 AM EST
+
+---
 
 ## Input Format
 
-Create a CSV file with your dealer list:
+CSV files live in the `input/` directory.
 
-**Required Columns:**
-- `Dealer_Name` - Display name for the dealer
-- `Base_URL` - Inventory page URL
-- `Platform` - Website platform (currently supports: `DDC`)
+**Required columns:**
 
-**Example: dealers_cdjr.csv**
+| Column | Description |
+|--------|-------------|
+| `Dealer_Name` | Display name for the dealer |
+| `Base_URL` | Inventory page URL |
+| `Platform` | Website platform (currently: `DDC`) |
+
+**Example: `input/dealers_cdjr.csv`**
 ```csv
 Dealer_Name,Base_URL,Platform
 Elmwood CDJR,https://www.elmwoodcdjr.com/new-inventory/index.htm,DDC
@@ -62,45 +104,51 @@ Newport Jeep Ram,https://www.newportjeepram.com/new-inventory/index.htm,DDC
 Baldhill Dodge,https://www.baldhilldodgechrysler.net/new-inventory/index.htm,DDC
 ```
 
+---
+
 ## Output Format
 
-CSV with Make, Model, and counts per dealer:
+CSV with Make, Model, and vehicle counts per dealer:
 
 ```csv
 Make,Model,Elmwood CDJR,Newport Jeep Ram,Baldhill Dodge
 Chrysler,Pacifica,3,1,4
-Chrysler,Voyager,0,0,0
-Dodge,Charger 2-Door,1,0,2
 Dodge,Durango,3,2,1
 Jeep,Compass,15,8,12
-Jeep,Gladiator,10,6,8
 Jeep,Grand Cherokee,42,20,35
-Jeep,Wrangler,35,18,34
 Ram,1500,20,25,40
-Ram,2500,8,10,28
-Ram,3500,6,5,19
 ```
 
-### Output Details
-- **Sorted**: By Make (A-Z), then Model (A-Z)
-- **Zero values**: Model not in stock at that dealer
-- **ERROR**: Dealer site failed to scrape (others still processed)
-- **Filename**: `{input_name}_inventory_{YYYY-MM-DD}.csv`
+- **Sorted** by Make (A-Z), then Model (A-Z)
+- **Zero** = model not currently in stock at that dealer
+- **ERROR** = dealer site failed to scrape (others continue)
+- **Filename** = `{input_name}_inventory_{YYYY-MM-DD}.csv`
+
+---
+
+## Adding a New Dealer Group
+
+1. Create `input/dealers_XXX.csv` with the dealer list
+2. Copy an existing workflow file and update:
+   - `name:` — display name
+   - `cron:` — desired schedule (in UTC)
+   - The CSV filename in the `Run scraper` step
+3. Add the workflow to `.github/workflows/daily-XXX.yml`
+4. The same shared secrets are used by all groups
+
+---
 
 ## Supported Platforms
 
 ### DDC (dealer.com)
-Currently the only supported platform. Handles sites like:
-- `*.dealer.com`
-- dealer.com-hosted inventory pages
 
-**How it works:**
-1. Navigates to `?make={MAKE}&status=1-1` (on-lot filter)
-2. Expands Model filter section
-3. Extracts model counts from checkboxes
+Handles sites hosted on `dealer.com`. Navigates to `?make={MAKE}&status=1-1` (on-lot filter), expands the Model filter, and extracts counts from checkboxes.
 
 ### Adding New Platforms
-See `design.md` for details on adding support for other dealer website providers.
+
+See `PROJECT.md` for the platform handler architecture and how to add support for other dealer website providers.
+
+---
 
 ## Troubleshooting
 
@@ -108,196 +156,83 @@ See `design.md` for details on adding support for other dealer website providers
 ```
 ❌ Dealer XYZ failed: Unknown platform: AutoTrader
 ```
-**Solution**: Platform not yet supported. See `design.md` for how to add new platforms, or contact developer.
+Platform not yet supported. See `PROJECT.md` for how to add new platforms.
 
 ### Selector Not Found
 ```
 Note: Could not expand Model filter, trying to read anyway...
 ```
-**Not an error** - site structure might differ slightly. If counts are missing, the selector logic needs updating.
+Not necessarily an error — site structure may differ slightly. If counts are missing, run with `-v` to see which selectors were attempted, then update `scraper.js`.
 
 ### Network Timeout
 ```
 ❌ Dealer ABC failed: Timeout navigating to page
 ```
-**Causes**:
-- Dealer site is down
-- Slow internet connection
-- Site blocking automated access
-
-**Solution**:
-- Verify site loads in normal browser
-- Run script again (has 2 automatic retries)
-- Check if site has changed structure
+Causes: site down, slow connection, or bot detection. The script has 2 automatic retries. Verify the URL loads in a normal browser.
 
 ### Zero Inventory for All Models
-**Possible causes**:
 1. Dealer actually has no inventory (check site manually)
-2. Site changed filter structure (selectors need updating)
-3. Wrong URL provided (verify Base_URL in CSV)
+2. Site changed filter structure — run with `-v` to debug
+3. Wrong URL in the CSV
 
-### All Dealers Show ERROR
-**Check**:
-- Internet connection working
-- Node.js version 16+ (`node --version`)
-- Dependencies installed (`npm install`)
-- CSV file formatted correctly
-
-## Best Practices
-
-### Running Weekly
-1. Keep dealer CSV files in a dedicated folder
-2. Name output files clearly: `cdjr_inventory_2024-12-17.csv`
-3. Archive previous runs for historical comparison
-4. Spot-check a few values against live sites
-
-### Managing Multiple Groups
-Create separate CSV files:
+### Preflight Fails (CI only)
 ```
-dealers_cdjr.csv      # Chrysler/Dodge/Jeep/Ram dealers
-dealers_gmc.csv       # GMC/Buick dealers  
-dealers_luxury.csv    # Jaguar/Land Rover dealers
+Google Drive ... FAILED
 ```
-
-Run independently:
-```bash
-node scraper.js dealers_cdjr.csv
-node scraper.js dealers_gmc.csv
-node scraper.js dealers_luxury.csv
-```
-
-### Performance
-- **Sequential processing**: ~30-60 seconds per dealer
-- **Expected runtime**: 3 dealers = 2-3 minutes, 10 dealers = 5-10 minutes
-- Script shows progress as it runs
-
-## Error Handling
-
-The scraper is designed to be **fault-tolerant**:
-
-✅ One dealer fails → Others still process  
-✅ One make fails → Other makes still process  
-✅ Can't find a model → Counts as 0  
-✅ Reports all errors at end of run
-
-**Example output with errors:**
-```
-━━━ Processing: Newport Jeep Ram ━━━
-   Detecting available makes...
-   Found makes: Jeep, Ram
-   Scraping Jeep...
-      Jeep: 6 models, 52 units
-   Scraping Ram...
-      Ram: 5 models, 40 units
-✅ Newport Jeep Ram complete
-
-━━━ Processing: Broken Dealer ━━━
-❌ Broken Dealer failed: Timeout navigating to page
-
-✅ Output written to: dealers_cdjr_inventory_2024-12-17.csv
-
-⚠️  Failed Dealers (1):
-   - Broken Dealer: Timeout navigating to page
-```
-
-## Advanced Usage
-
-### Debugging
-Run with more verbose output:
-```bash
-# Add debugging to see what's happening
-DEBUG=puppeteer:* node scraper.js dealers_cdjr.csv
-```
-
-### Headful Mode (see browser)
-Edit `scraper.js` line ~25:
-```javascript
-// Change this:
-const browser = await puppeteer.launch({
-  headless: 'new',  // Change to false to see browser
-  
-// To this:
-const browser = await puppeteer.launch({
-  headless: false,  // Now you can watch it work
-```
-
-### Custom Delays
-If sites are slow to load, increase wait times in `scraper.js`:
-```javascript
-// Search for:
-await sleep(2000);
-
-// Increase to:
-await sleep(5000);  // Wait 5 seconds instead of 2
-```
-
-## Development
-
-### Project Structure
-```
-dealer-inventory-scraper/
-├── package.json       # Dependencies and metadata
-├── scraper.js         # Main scraper logic
-├── design.md          # Architecture documentation
-├── README.md          # This file
-├── dealers_cdjr.csv   # Example input
-└── .gitignore         # Ignore output and node_modules
-```
-
-### Dependencies
-- **puppeteer** - Headless Chrome browser automation
-- **csv-parse** - Parse input CSV files
-- **csv-stringify** - Generate output CSV files
-
-### Testing Changes
-```bash
-# After editing scraper.js:
-node scraper.js dealers_cdjr.csv
-
-# Compare output against known good results
-```
-
-## FAQ
-
-**Q: How often should I run this?**  
-A: Weekly is typical for inventory tracking. Run more often if needed (daily, bi-weekly).
-
-**Q: Can I run multiple dealer groups at once?**  
-A: Not directly. Run each CSV separately. You can combine outputs afterward if needed.
-
-**Q: What if a dealer changes their website?**  
-A: The script may fail for that dealer. Check the error message and update selectors in `scraper.js` (or contact developer).
-
-**Q: Can I add more dealers to an existing CSV?**  
-A: Yes! Just add new rows to the CSV file and re-run the script.
-
-**Q: Does this work for used car inventory?**  
-A: Currently filters to "On The Lot" new vehicles (`status=1-1`). Used vehicles would need different status codes.
-
-**Q: Can I export to Excel?**  
-A: The CSV output opens directly in Excel, Google Sheets, or any spreadsheet program.
-
-**Q: Will I get banned from dealer sites?**  
-A: The script uses realistic delays and user agents. It's designed to be respectful of dealer sites. We've had no issues so far.
-
-## Support
-
-For issues, questions, or feature requests:
-
-1. Check `design.md` for architecture details
-2. Review this README's Troubleshooting section
-3. Run in headful mode to see what's happening
-4. Contact developer with:
-   - Error message
-   - Dealer URL that failed
-   - Your Node.js version (`node --version`)
-
-## License
-
-Internal business use. See `design.md` for usage guidelines.
+Check that all `GDRIVE_*` secrets are correct. Use `node get-gdrive-token.js` to generate a fresh refresh token if needed.
 
 ---
 
-**Version**: 1.0.0  
-**Last Updated**: December 2024  
+## Project Structure
+
+```
+dealer-inventory-scraper/
+├── .github/
+│   └── workflows/
+│       ├── daily-cdjr.yml       # CDJR workflow (8 AM EST)
+│       └── daily-buick.yml      # Buick workflow (10 AM EST)
+├── input/
+│   ├── dealers_cdjr.csv         # CDJR dealer list
+│   └── dealers_buick.csv        # Buick dealer list
+├── output/                      # Generated CSV files (git-ignored)
+├── scraper.js                   # Main scraper — reads CSV, writes output/
+├── preflight.js                 # Validates Drive + Gmail credentials (CI only)
+├── upload-site.js               # Uploads output CSV to Google Drive (CI only)
+├── notify-email.js              # Sends start/end email notifications (CI only)
+├── get-gdrive-token.js          # Helper: generate OAuth2 refresh token
+├── package.json
+├── PROJECT.md                   # Detailed architecture and implementation spec
+└── README.md                    # This file
+```
+
+---
+
+## Performance
+
+- **Sequential**: ~30–60 seconds per dealer
+- **Typical runtime**: 5 dealers ≈ 4–6 minutes, 10 dealers ≈ 8–12 minutes
+
+---
+
+## FAQ
+
+**Q: How do I add a dealer to an existing group?**
+Add a new row to the group's CSV in `input/` and re-run.
+
+**Q: Can two groups run at the same time?**
+Each group is a separate workflow job with its own runner — they can overlap safely.
+
+**Q: Does this work for used inventory?**
+Currently filters to "On The Lot" new vehicles (`status=1-1`). Used vehicles need different status codes.
+
+**Q: What if a dealer changes their website?**
+The script will fail for that dealer. Run with `-v` to see which selectors failed, then update the selector arrays in `scraper.js`.
+
+**Q: How do I refresh the Google Drive token?**
+Run `node get-gdrive-token.js` locally to generate a new refresh token, then update the `GDRIVE_REFRESH_TOKEN` secret.
+
+---
+
+**Version**: 1.2.0
+**Last Updated**: March 2025
 **Supported Platforms**: DDC (dealer.com)

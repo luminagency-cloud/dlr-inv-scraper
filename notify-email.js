@@ -3,6 +3,11 @@ const fs = require('fs');
 const path = require('path');
 
 async function notify() {
+  if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+    console.log('Skipping email notification (no credentials configured — local run)');
+    return;
+  }
+
   const mode = process.env.NOTIFY_MODE || 'end';
   const today = new Date().toISOString().slice(0, 10);
 

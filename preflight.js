@@ -51,9 +51,17 @@ async function checkEmail() {
 }
 
 async function main() {
+  const hasDriveCreds = process.env.GDRIVE_CLIENT_ID && process.env.GDRIVE_REFRESH_TOKEN;
+  const hasEmailCreds = process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD;
+
+  if (!hasDriveCreds && !hasEmailCreds) {
+    console.log('\nPreflight checks: skipped (no credentials configured — local run)\n');
+    return;
+  }
+
   console.log('\nPreflight checks:');
-  await checkDrive();
-  await checkEmail();
+  if (hasDriveCreds) await checkDrive(); else console.log('  Google Drive ... skipped (no credentials)');
+  if (hasEmailCreds) await checkEmail(); else console.log('  Gmail SMTP    ... skipped (no credentials)');
   console.log();
 
   if (!passed) {
