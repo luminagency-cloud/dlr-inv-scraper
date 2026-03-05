@@ -1,15 +1,13 @@
 const { google } = require('googleapis');
+const { OAuth2Client } = require('google-auth-library');
 const fs = require('fs');
 const path = require('path');
 
 async function upload() {
-  const keyJson = JSON.parse(process.env.GDRIVE_SERVICE_ACCOUNT_JSON);
   const folderId = process.env.GDRIVE_FOLDER_ID;
 
-  const auth = new google.auth.GoogleAuth({
-    credentials: keyJson,
-    scopes: ['https://www.googleapis.com/auth/drive.file'],
-  });
+  const auth = new OAuth2Client(process.env.GDRIVE_CLIENT_ID, process.env.GDRIVE_CLIENT_SECRET);
+  auth.setCredentials({ refresh_token: process.env.GDRIVE_REFRESH_TOKEN });
 
   const drive = google.drive({ version: 'v3', auth });
 

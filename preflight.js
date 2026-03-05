@@ -2,6 +2,7 @@
 // If either check fails, exits with code 1 and the workflow stops early.
 
 const { google } = require('googleapis');
+const { OAuth2Client } = require('google-auth-library');
 const nodemailer = require('nodemailer');
 
 let passed = true;
@@ -9,13 +10,10 @@ let passed = true;
 async function checkDrive() {
   process.stdout.write('  Google Drive ... ');
   try {
-    const keyJson = JSON.parse(process.env.GDRIVE_SERVICE_ACCOUNT_JSON);
     const folderId = process.env.GDRIVE_FOLDER_ID;
 
-    const auth = new google.auth.GoogleAuth({
-      credentials: keyJson,
-      scopes: ['https://www.googleapis.com/auth/drive.file'],
-    });
+    const auth = new OAuth2Client(process.env.GDRIVE_CLIENT_ID, process.env.GDRIVE_CLIENT_SECRET);
+    auth.setCredentials({ refresh_token: process.env.GDRIVE_REFRESH_TOKEN });
     const drive = google.drive({ version: 'v3', auth });
 
     // Test write access: create a tiny file then immediately delete it

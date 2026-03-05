@@ -1,4 +1,4 @@
-name: Daily Dealer Inventory Scrape
+name: Daily Scrape — CDJR
 
 on:
   schedule:
@@ -29,7 +29,9 @@ jobs:
       - name: Preflight checks
         run: node preflight.js
         env:
-          GDRIVE_SERVICE_ACCOUNT_JSON: ${{ secrets.GDRIVE_SERVICE_ACCOUNT_JSON }}
+          GDRIVE_CLIENT_ID: ${{ secrets.GDRIVE_CLIENT_ID }}
+          GDRIVE_CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}
+          GDRIVE_REFRESH_TOKEN: ${{ secrets.GDRIVE_REFRESH_TOKEN }}
           GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
@@ -46,7 +48,7 @@ jobs:
         id: scrape
         run: |
           mkdir -p output
-          node scraper.js dealers_cdjr.csv 2>&1 | tee output/run.log
+          node scraper.js input/dealers_cdjr.csv 2>&1 | tee output/run.log
           echo "exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
         env:
           CI: 'true'
@@ -56,7 +58,9 @@ jobs:
         if: always()
         run: node upload-site.js
         env:
-          GDRIVE_SERVICE_ACCOUNT_JSON: ${{ secrets.GDRIVE_SERVICE_ACCOUNT_JSON }}
+          GDRIVE_CLIENT_ID: ${{ secrets.GDRIVE_CLIENT_ID }}
+          GDRIVE_CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}
+          GDRIVE_REFRESH_TOKEN: ${{ secrets.GDRIVE_REFRESH_TOKEN }}
           GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
 
       - name: Send email notification
