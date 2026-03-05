@@ -19,6 +19,9 @@ Thumbs.db
 *.swp
 *.swo
 
+# Claude Code local settings (machine-specific)
+.claude/settings.local.json
+
 # Testing
 test-output/
 *.test.js
