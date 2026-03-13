@@ -8,8 +8,8 @@ Two dealer groups are configured, each running on its own schedule:
 
 | Group | Input File | Workflow | Schedule |
 |-------|-----------|----------|----------|
-| CDJR  | `input/dealers_cdjr.csv` | `daily-cdjr.yml` | 8 AM EST |
-| Buick | `input/dealers_buick.csv` | `daily-buick.yml` | 10 AM EST |
+| CDJR  | `input/dealers_cdjr.csv` | `daily-cdjr.yml` | Sunday ~10pm EST |
+| Buick | `input/dealers_buick.csv` | `daily-buick.yml` | SUnday ~ 11pm |
 
 Each automated run:
 1. Runs preflight checks (Drive + Gmail credentials)
