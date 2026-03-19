@@ -4,8 +4,8 @@ const { OAuth2Client } = require('google-auth-library');
 const http = require('http');
 const url = require('url');
 
-const CLIENT_ID = '424174891584-228lj4ogt7ciu2md27anmv5p8nl8ocel.apps.googleusercontent.com';
-const CLIENT_SECRET = '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';
+const CLIENT_ID = process.env.GDRIVE_CLIENT_ID;
+const CLIENT_SECRET = process.env.GDRIVE_CLIENT_SECRET;
 const REDIRECT_URI = 'http://localhost:3000';
 
 if (!CLIENT_ID || !CLIENT_SECRET) {

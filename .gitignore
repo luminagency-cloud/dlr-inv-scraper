@@ -25,3 +25,7 @@ Thumbs.db
 # Testing
 test-output/
 *.test.js
+
+.env
+.env.*
+.env.local
