@@ -19,8 +19,9 @@ Thumbs.db
 *.swp
 *.swo
 
-# Claude Code local settings (machine-specific)
+# Claude Code local files (machine-specific)
 .claude/settings.local.json
+.claude/worktrees/
 
 # Testing
 test-output/
