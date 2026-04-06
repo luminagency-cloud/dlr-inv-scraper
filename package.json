@@ -1,11 +1,11 @@
 {
   "name": "dealer-inventory-scraper",
-  "version": "1.0.0",
+  "version": "1.1.2",
   "description": "Automated dealership inventory comparison tool",
   "main": "scraper.js",
   "scripts": {
     "start": "node scraper.js",
-    "test": "node scraper.js dealers_cdjr.csv"
+    "test": "node scraper.js input/dealers_cdjr.csv"
   },
   "keywords": [
     "scraper",

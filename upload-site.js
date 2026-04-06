@@ -1,19 +1,27 @@
 const { google } = require('googleapis');
-const { OAuth2Client } = require('google-auth-library');
 const fs = require('fs');
 const path = require('path');
+const { loadLocalEnv } = require('./config');
+const { createDriveAuthClient, getDriveConfig, hasDriveCredentials } = require('./gdrive-auth');
+
+loadLocalEnv();
+
+function escapeDriveQueryValue(value) {
+  return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
 
 async function upload() {
-  if (!process.env.GDRIVE_CLIENT_ID || !process.env.GDRIVE_REFRESH_TOKEN) {
+  if (!hasDriveCredentials()) {
     console.log('Skipping Google Drive upload (no credentials configured — local run)');
     return;
   }
 
-  const folderId = process.env.GDRIVE_FOLDER_ID;
+  const { folderId } = getDriveConfig();
+  if (!folderId) {
+    throw new Error('Missing GDRIVE_FOLDER_ID');
+  }
 
-  const auth = new OAuth2Client(process.env.GDRIVE_CLIENT_ID, process.env.GDRIVE_CLIENT_SECRET);
-  auth.setCredentials({ refresh_token: process.env.GDRIVE_REFRESH_TOKEN });
-
+  const auth = createDriveAuthClient();
   const drive = google.drive({ version: 'v3', auth });
 
   const outputDir = path.join(process.cwd(), 'output');
@@ -34,7 +42,7 @@ async function upload() {
 
     // Check if a file with this name already exists in the folder
     const existing = await drive.files.list({
-      q: `name='${file}' and '${folderId}' in parents and trashed=false`,
+      q: `name='${escapeDriveQueryValue(file)}' and '${folderId}' in parents and trashed=false`,
       fields: 'files(id)',
     });
 

@@ -2,19 +2,33 @@
 // If either check fails, exits with code 1 and the workflow stops early.
 
 const { google } = require('googleapis');
-const { OAuth2Client } = require('google-auth-library');
 const nodemailer = require('nodemailer');
+const { loadLocalEnv } = require('./config');
+const { createDriveAuthClient, getDriveAuthMode, getDriveConfig, hasDriveCredentials } = require('./gdrive-auth');
 
 let passed = true;
+
+loadLocalEnv();
+
+function formatDriveError(err, authMode) {
+  if (err?.message === 'unauthorized_client' && authMode === 'oauth') {
+    return 'unauthorized_client (the OAuth client ID/secret no longer matches the refresh token; update the GitHub secrets with a matching OAuth client and refresh token)';
+  }
+
+  return err?.message || 'Unknown Google Drive error';
+}
 
 async function checkDrive() {
   process.stdout.write('  Google Drive ... ');
   try {
-    const folderId = process.env.GDRIVE_FOLDER_ID;
+    const { folderId } = getDriveConfig();
+    if (!folderId) {
+      throw new Error('Missing GDRIVE_FOLDER_ID');
+    }
 
-    const auth = new OAuth2Client(process.env.GDRIVE_CLIENT_ID, process.env.GDRIVE_CLIENT_SECRET);
-    auth.setCredentials({ refresh_token: process.env.GDRIVE_REFRESH_TOKEN });
+    const auth = createDriveAuthClient();
     const drive = google.drive({ version: 'v3', auth });
+    const authMode = getDriveAuthMode();
 
     // Test write access: create a tiny file then immediately delete it
     const { Readable } = require('stream');
@@ -25,9 +39,9 @@ async function checkDrive() {
     });
     await drive.files.delete({ fileId: res.data.id });
 
-    console.log('OK');
+    console.log(`OK (${authMode})`);
   } catch (err) {
-    console.log(`FAILED — ${err.message}`);
+    console.log(`FAILED — ${formatDriveError(err, getDriveAuthMode())}`);
     passed = false;
   }
 }
@@ -51,7 +65,7 @@ async function checkEmail() {
 }
 
 async function main() {
-  const hasDriveCreds = process.env.GDRIVE_CLIENT_ID && process.env.GDRIVE_REFRESH_TOKEN;
+  const hasDriveCreds = hasDriveCredentials();
   const hasEmailCreds = process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD;
 
   if (!hasDriveCreds && !hasEmailCreds) {
