@@ -2,6 +2,7 @@
 // If either check fails, exits with code 1 and the workflow stops early.
 
 const { google } = require('googleapis');
+const { OAuth2Client } = require('google-auth-library');
 const nodemailer = require('nodemailer');
 
 let passed = true;
@@ -11,10 +12,8 @@ async function checkDrive() {
   try {
     const folderId = process.env.GDRIVE_FOLDER_ID;
 
-    const auth = new google.auth.GoogleAuth({
-      credentials: JSON.parse(process.env.GDRIVE_SERVICE_ACCOUNT_KEY),
-      scopes: ['https://www.googleapis.com/auth/drive'],
-    });
+    const auth = new OAuth2Client(process.env.GDRIVE_CLIENT_ID, process.env.GDRIVE_CLIENT_SECRET);
+    auth.setCredentials({ refresh_token: process.env.GDRIVE_REFRESH_TOKEN });
     const drive = google.drive({ version: 'v3', auth });
 
     // Test write access: create a tiny file then immediately delete it
@@ -52,7 +51,7 @@ async function checkEmail() {
 }
 
 async function main() {
-  const hasDriveCreds = !!process.env.GDRIVE_SERVICE_ACCOUNT_KEY;
+  const hasDriveCreds = process.env.GDRIVE_CLIENT_ID && process.env.GDRIVE_REFRESH_TOKEN;
   const hasEmailCreds = process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD;
 
   if (!hasDriveCreds && !hasEmailCreds) {
